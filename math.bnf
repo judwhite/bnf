@@ -1,0 +1,35 @@
+; Math
+
+<opt-ws>               ::= <ws>
+                         | ""
+<ws>                   ::= <ws-char><ws-rest>
+<ws-rest>              ::= <ws-char><ws-rest>
+                         | ""
+<ws-char>              ::= " " | <tab> | <cr> | <lf>
+
+<math-expr>            ::= <math-term> <math-opt-add>
+<math-term>            ::= <math-factor> <math-opt-mul>
+<math-factor>          ::= <real>
+                         | "(" <math-expr> ")"
+<math-opt-add>         ::= "+" <math-term> <math-opt-add>
+                         | "-" <math-term> <math-opt-add>
+                         | ""
+<math-opt-mul>         ::= "*" <math-factor> <math-opt-mul>
+                         | "/" <math-factor> <math-opt-mul>
+                         | "%" <math-factor> <math-opt-mul>
+                         | ""
+
+<real>                 ::= <fraction> | <integer>
+<fraction>             ::= "+"<digit-list>"."<digit-list>
+                         | "-"<digit-list>"."<digit-list>
+                         | "."<digit-list>
+                         | "-."<digit-list>
+                         | "+."<digit-list>
+                         | <integer>"."<digit-list>
+<integer>              ::= "+"<digit-list>
+                         | "-"<digit-list>
+                         | <digit-list>
+<digit-list>           ::= <digit><digit-list-rest>
+<digit-list-rest>      ::= <digit><digit-list-rest>
+                         | ""
+<digit>                ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"

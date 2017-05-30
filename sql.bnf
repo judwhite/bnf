@@ -1,0 +1,117 @@
+; https://bitbucket.org/qps/tsql-grammar/src/bf6cb4f0db788a243a258af2f0158de741b92883/MS-SQL.grm?at=master&fileviewer=file-view-default
+
+<select>               ::= <select-union> <opt-order-by> <opt-semicolon>
+
+<select-union>         ::= <sub-select> <opt-union>
+
+<opt-union>            ::= "union" <sub-select>
+                         | "union all" <sub-select>
+                         | ""
+
+<sub-select>           ::= "select" <opt-top> <opt-distinct> <fieldlist> <opt-from> <opt-where> <opt-group-by>
+
+; TOP
+<opt-top>              ::= "top" <integer>
+                         | ""
+
+; DISTINCT
+<opt-distinct>         ::= "distinct"
+                         | ""
+
+; FROM
+<opt-from>             ::= "from" <rowset>
+                         | ""
+
+; WHERE
+<opt-where>            ::= "where" <conditions>
+                         | ""
+
+; GROUP BY
+<opt-group-by>         ::= "group by" <expr-list> <opt-having>
+                         | ""
+
+; HAVING
+<opt-having>           ::= "having" <expression>
+                         | ""
+
+; ORDER BY
+<opt-order-by>         ::= "order by" <expr-list>
+                         | ""
+
+<opt-semicolon>        ::= ";"
+                         | ""
+
+<expr-list>            ::= <aliased-field> <expr-list-rest>
+
+<expr-list-rest>       ::= "," <expr-list>
+                         | ""
+
+<aliased-field>        ::= <identifier> ".*"
+                         | "*"
+                         | <field> <opt-alias>
+
+<field>                ::= <qualified-identifier>
+                         | <expression> ; TODO: math-expr should include qualifiedId's and strings
+                         | <integer>    ; TODO: shouldn't this be in expr?
+                         | <string>
+
+<qualified-identifier> ::= <identifier> "." <identifier>
+                         | <identifier>
+
+<opt-alias>            ::= <required-alias>
+                         | ""
+
+<required-alias>       ::= <identifier>
+                         | "as" <identifier>
+                         
+<identifier>           ::= "[" <string> "]"
+                         | <string>
+
+; TODO: join on additional rowsets
+<rowset>               ::= <qualified-identifier> <opt-alias> "join" <rowset> "on" <conditions>
+                         | <qualified-identifier> <opt-alias>
+                         | "(" <select> ")" <required-alias> "join" <rowset> "on" <conditions>
+                         | "(" <select> ")" <required-alias>
+
+; TODO: use expression
+; TODO: IS NULL, IS NOT NULL, BETWEEN
+<conditions>           ::= <qualified-identifier> <equality> <qualified-identifier> <conditions-rest>
+                         | <qualified-identifier> "IS NOT NULL" <conditions-rest>
+                         | <qualified-identifier> "IS NULL" <conditions-rest>
+                         | <qualified-identifier> "BETWEEN" <expression> "AND" <expression>
+                         | "(" <conditions> ")"
+
+; TODO: separate to give AND preference over OR
+<conditions-rest>      ::= "and" <conditions>
+                         | "or" <conditions>
+                         | ""
+
+<equality>             ::= <equals>
+                         | <not-equals>
+                         | <gt>
+                         | <gte>
+                         | <lt>
+                         | <lte>
+
+<equals>               ::= "="
+<not-equals>           ::= "!="
+                         | "<>"
+<gt>                   ::= ">"
+<gte>                  ::= ">="
+<lt>                   ::= "<"
+<lte>                  ::= "<="
+
+; Math
+
+<math-expr>            ::= <math-term> <math-add-rest>
+<math-term>            ::= <math-factor> <math-mul-rest>
+<math-factor>          ::= <number>
+                         | "(" <math-expr> ")"
+                         | "-" <math-factor>
+<math-add-rest>        ::= "+" <math-term> <math-add-rest>
+                         | "-" <math-term> <math-add-rest>
+                         | ""
+<math-mul-rest>        ::= "*" <math-factor> <math-mul-rest>
+                         | "/" <math-factor> <math-mul-rest>
+                         | "%" <math-factor> <math-mul-rest>
+                         | ""
