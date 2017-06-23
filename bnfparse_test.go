@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestParse(t *testing.T) {
+func TestMathParse(t *testing.T) {
 	prods, err := LoadFile("math.bnf")
 	if err != nil {
 		t.Fatal(err)
@@ -49,4 +49,16 @@ func evalFraction(node ASTNode) float64 {
 		panic(err)
 	}
 	return v
+}
+
+func TestXMLParse(t *testing.T) {
+	prods, err := LoadFile("xml_test.bnf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ast, err := Parse("Comment", prods, "<!-- declarations for <head> & <body> -->")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ast.Print()
 }
