@@ -20,7 +20,9 @@ func (p Production) String() string {
 }
 
 type Rule struct {
-	Items []Item
+	Optional bool
+	Many     bool
+	Items    []Item
 }
 
 func (r Rule) String() string {
@@ -29,7 +31,21 @@ func (r Rule) String() string {
 		if i != 0 {
 			buf.WriteRune(' ')
 		}
-		buf.WriteString(item.String())
+		if len(item.Expression) > 0 {
+			buf.WriteString("(")
+			for _, expr := range item.Expression {
+				buf.WriteString(expr.String())
+			}
+			buf.WriteString(" ) ")
+		} else {
+			buf.WriteString(item.String())
+		}
+	}
+	if r.Optional {
+		buf.WriteString("?")
+	}
+	if r.Many {
+		buf.WriteString("*")
 	}
 	return buf.String()
 }
@@ -147,7 +163,7 @@ func parseRules(line string) ([]Rule, error) {
 	var rules []Rule
 	line = strings.Replace(line, "\t", " ", -1)
 	for len(line) > 0 {
-		newline, set, err := parseSet(line)
+		newline, set, err := parseSet(false, line)
 		if err != nil {
 			return nil, err
 		}
@@ -157,7 +173,7 @@ func parseRules(line string) ([]Rule, error) {
 	return rules, nil
 }
 
-func parseSet(line string) (string, []Rule, error) {
+func parseSet(startExpr bool, line string) (string, []Rule, error) {
 	var rules []Rule
 	origLine := line
 	for len(line) > 0 {
@@ -167,8 +183,13 @@ func parseSet(line string) (string, []Rule, error) {
 			var idx int
 			line = strings.TrimSpace(line)
 			if strings.HasPrefix(line, ")") {
+				if !startExpr {
+					return line, nil, fmt.Errorf("closing paren without matching open paren")
+				}
 				// TODO (judwhite): make sure it had an open (
-				return line[1:], rules, nil
+				line = line[1:]
+				break
+				//return line[1:], rules, nil
 			} else if strings.HasPrefix(line, `"`) {
 				idx = strings.Index(line[1:], `"`) + 1
 				if idx == 0 {
@@ -192,33 +213,33 @@ func parseSet(line string) (string, []Rule, error) {
 					return "", nil, fmt.Errorf("expected 'x' after '#': %s", origLine)
 				}
 
-				var text string
-				if idx = strings.Index(line, " "); idx == -1 {
-					text = line
-					line = ""
-				} else {
-					text = line[:idx]
-					line = line[idx:]
+				var r rune
+				for idx, r = range line[idx+1:] {
+					if !(unicode.IsDigit(r) || r >= 'a' && r <= 'f' || r >= 'A' && r <= 'F') {
+						idx++
+						break
+					}
 				}
-				// TODO (judwhite): validate hex
+				text := line[:idx+1]
+				line = line[idx+1:]
 				items = append(items, Item{Text: text})
 			} else if strings.HasPrefix(line, "[") {
 				// sets, ranges
 				// prefixed with ^, excludes set(s)
-				idx = strings.Index(line, "]")
-				if idx == -1 {
+				idx = strings.Index(line, "]") + 1
+				if idx == 0 {
 					return "", nil, fmt.Errorf("no closing ] found: %s", origLine)
 				}
 				items = append(items, Item{Text: line[:idx]})
-				line = line[idx+1:]
+				line = line[idx:]
 			} else if strings.HasPrefix(line, "(") {
 				// expression unit
-				newline, expr, err := parseSet(line[1:])
+				newline, expr, err := parseSet(true, line[1:])
 				if err != nil {
 					return "", nil, err
 				}
+				items = append(items, Item{Text: line[:len(line)-len(newline)], Expression: expr})
 				line = newline
-				items = append(items, Item{Text: "", Expression: expr, IsProduction: true})
 			} else if strings.HasPrefix(line, "|") {
 				// new rule
 				line = line[1:]
@@ -226,13 +247,35 @@ func parseSet(line string) (string, []Rule, error) {
 				//} else {
 				//	items = append(items, Item{Text: text, Terminal: terminal})
 			} else if line[0] == '*' {
-				items = append(items, Item{Many: true})
-				line = line[1:]
+				if len(items) != 0 {
+					items[len(items)-1].Many = true
+					items[len(items)-1].Optional = true
+					line = line[1:]
+				} else {
+					items = append(items, Item{Many: true, Optional: true, Text: "*"})
+					line = line[1:]
+					break
+				}
 			} else if line[0] == '?' {
-				items = append(items, Item{Optional: true})
-				line = line[1:]
+				if len(items) != 0 {
+					items[len(items)-1].Optional = true
+					line = line[1:]
+				} else {
+					items = append(items, Item{Optional: true, Text: "?"})
+					line = line[1:]
+					break
+				}
+			} else if line[0] == '+' {
+				if len(items) != 0 {
+					items[len(items)-1].Many = true
+					line = line[1:]
+				} else {
+					items = append(items, Item{Many: true, Text: "+"})
+					line = line[1:]
+					break
+				}
 			} else if line[0] == '-' {
-				items = append(items, Item{Subtract: true})
+				items = append(items, Item{Subtract: true, Text: "-"})
 				line = line[1:]
 			} else if unicode.IsLetter(rune(line[0])) {
 				// production
@@ -250,6 +293,24 @@ func parseSet(line string) (string, []Rule, error) {
 		}
 		if len(items) > 0 {
 			rules = append(rules, Rule{Items: items})
+		}
+	}
+	for i := 0; i < len(rules)-1; i++ {
+		if len(rules[i+1].Items) == 1 {
+			found := false
+			if rules[i+1].Items[0].Optional {
+				rules[i].Optional = true
+				found = true
+			}
+			if rules[i].Items[0].Many {
+				rules[i].Many = true
+				found = true
+			}
+
+			if found {
+				copy(rules[i+1:], rules[i+2:])
+				rules = rules[:len(rules)-1]
+			}
 		}
 	}
 	return "", rules, nil

@@ -56,6 +56,12 @@ func TestXMLParse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, prod := range prods {
+		fmt.Printf("prod: %s\n", prod)
+		for _, rule := range prod.Rules {
+			fmt.Printf("- rule: %s\n", rule)
+		}
+	}
 	ast, err := Parse("Comment", prods, "<!-- declarations for <head> & <body> -->")
 	if err != nil {
 		t.Fatal(err)

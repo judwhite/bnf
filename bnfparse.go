@@ -87,14 +87,25 @@ func (r Rule) Parse(prodMap map[string]Production, text string) (string, []ASTNo
 }
 
 func (i Item) Consume(prodMap map[string]Production, text string) (string, ASTNode, bool) {
-	if !i.IsProduction {
-		if strings.HasPrefix(text, i.Text) {
-			return text[len(i.Text):], ASTNode{Literal: i.Text, Input: i.Text}, true
+	if len(i.Expression) > 0 {
+		for _, rule := range i.Expression {
+			newText, nodes, ok := rule.Parse(prodMap, text)
+			if ok {
+				return newText, ASTNode{Rule: rule, Children: nodes}, ok
+			}
 		}
 		return text, ASTNode{}, false
 	}
 
-	prod := prodMap[i.Text]
-	newText, node, ok := prod.Parse(prodMap, text)
-	return newText, node, ok
+	if i.IsProduction {
+		prod := prodMap[i.Text]
+		newText, node, ok := prod.Parse(prodMap, text)
+		return newText, node, ok
+	}
+
+	fmt.Printf(i.Text)
+	if strings.HasPrefix(text, i.Text) {
+		return text[len(i.Text):], ASTNode{Literal: i.Text, Input: i.Text}, true
+	}
+	return text, ASTNode{}, false
 }
